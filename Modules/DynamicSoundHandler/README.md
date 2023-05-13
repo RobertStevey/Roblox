@@ -1,10 +1,10 @@
-##DynamicSoundHandler
+## DynamicSoundHandler
 
 A module designed for realistic audio in roblox for run time use. Be aware that this isn't optimized as much as it could be.
 Now the reason why it does not have "stop sound" function is because this was designed to be used for realism in gameplay, please only use this module for that.
 Dont forget that this is only to be used in the client and not the server.
 
-##API
+## API
 `.new(Sounds:{[SoundName] = Sound:Sound}?)`
 Constructs a new DynamicSoundHandler. Must be used in the client!
 
