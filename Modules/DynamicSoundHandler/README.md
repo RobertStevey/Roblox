@@ -6,7 +6,7 @@ Dont forget that this is only to be used in the client and not the server.
 
 ## API
 `.new(Sounds:{[SoundName] = Sound:Sound}?)`
-Constructs a new DynamicSoundHandler. Must be used in the client!
+returns a new DynamicSoundHandler. Must be used in the client!
 
 `:AddSound(Sounds:{[SoundName] = Sound:Sound})`
 Adds sounds to the sounds list.
