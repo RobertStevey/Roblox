@@ -4,23 +4,25 @@ local SoundService = game:GetService("SoundService")
 
 local Settings = {
 	Occlusion = {
-		MaterialAbsorb = {
-			Fabric = 0.9,
-			Grass = 0.7,
-			Sand = 0.65,
+		--how reflective are the material? if it gets higher then it is more echo-ey
+		MaterialReflect = {
+			Fabric = 0.1,
+			Grass = 0.3,
+			Sand = 0.35,
 			SmoothPlastic = 0.5,
-			Plastic = 0.2,
-			Cobblestone = 0.65,
-			Concrete = 0.7,
+			Plastic = 0.8,
+			Cobblestone = 0.35,
+			Concrete = 0.3,
 			Wood = 0.5,
 			WoodPlanks = 0.5,
-			Brick = 0.7,
-			Ice = 0.3,
-			Metal = 0.4,
-			Marble = 0.2,
-			Granite = 0.2
+			Brick = 0.3,
+			Ice = 0.7,
+			Metal = 0.6,
+			Marble = 0.8,
+			Granite = 0.8
 		},
 		Rays = 8,
+		Fallback = 0.1,
 		FilterDescendants = {},
 		RayLength = 20,
 		IgnoreWater = true,
@@ -41,13 +43,9 @@ function DynamicSoundHandler.New(Sounds)
 		error("DynamicSoundHandler must run on the client!")
 		return
 	end
-	
 	local self = {}
-	
 	self.Sounds = {}
-	
 	if Sounds then
-
 		for SoundName, Sound in pairs(Sounds) do
 			self.Sounds[SoundName] = Sound
 			--if self.Sounds[SoundName].Occlusion then
@@ -68,28 +66,14 @@ function DynamicSoundHandler.New(Sounds)
 			--end
 		end
 	end
-	
 	self.PlayingSounds = {}
-	
 	return setmetatable(self, DynamicSoundHandler)
 end
 
-function GetDirection(n, multiplier)
-	local goldenRatio = 1 + math.sqrt(5) / 4
-	local angleIncrement = math.pi * 2 * goldenRatio
-	local multiplier = multiplier
+function GetDirection(n, Length)
 	local result = {}
-
 	for i = 0, n do
-		local distance = i / n
-		local incline = math.acos(1 - 2 * distance)
-		local azimuth = angleIncrement * i
-
-		local x = math.sin(incline) * math.cos(azimuth) * multiplier
-		local y = math.sin(incline) * math.sin(azimuth) * multiplier
-		local z = math.cos(incline) * multiplier
-
-		table.insert(result, Vector3.new(x,y,z))
+		table.insert(result, Vector3.new(Random.new():NextNumber(-Length, Length),Random.new():NextNumber(-Length, Length),Random.new():NextNumber(-Length, Length)))
 	end
 	return result
 end
@@ -104,6 +88,10 @@ function Average(t:{number})
 		sum = sum + v
 	end
 	return sum / #t
+end
+
+local function LerpNumber(a, b, t)
+	return a + (b - a) * t
 end
 
 function DynamicSoundHandler:AddSound(Sounds)
@@ -167,11 +155,12 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 				local Ref = Reflect(Vector, RayResult.Normal)
 
 				table.insert(AvarageDistance, Vector.Magnitude)
-				table.insert(AvarageCoefficient, Settings.Occlusion.MaterialAbsorb[RayResult.Material.Name])
+				table.insert(AvarageCoefficient, Settings.Occlusion.MaterialReflect[RayResult.Material.Name])
 				bounce = bounce
 				Fire(Position, Ref, bounce+1)
 			else
 				table.insert(Avaragebounces, bounce)
+				table.insert(AvarageCoefficient, Settings.Occlusion.Fallback)
 			end
 		else
 			table.insert(Avaragebounces, Settings.Occlusion.MaxBounce)
@@ -181,16 +170,17 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	for i = 1, #Directions do
 		Fire(Position, Directions[i], 0)
 	end
-
-	AvarageDistance = Average(AvarageDistance)
-	AvarageCoefficient = Average(AvarageCoefficient)
 	local MaxBounce = math.max(table.unpack(Avaragebounces))
+	--[[local MaxCoefficient = math.max(table.unpack(AvarageCoefficient))
+	local MaxDistance = math.max(table.unpack(AvarageDistance))
+	]]AvarageDistance = Average(AvarageDistance)
+	AvarageCoefficient = Average(AvarageCoefficient)
 	Avaragebounces = Average(Avaragebounces)
 	
-	ReverbSoundEffect.DecayTime = AvarageDistance * AvarageCoefficient
-	ReverbSoundEffect.Density = MaxBounce
-	ReverbSoundEffect.Diffusion = 1 - Avaragebounces/Settings.Occlusion.MaxBounce
-	ReverbSoundEffect.WetLevel = (Avaragebounces/MaxBounce) * (0.5 - AvarageCoefficient/2)
+	ReverbSoundEffect.DecayTime = LerpNumber(ReverbSoundEffect.DecayTime, ((Avaragebounces*AvarageCoefficient)*(AvarageDistance * AvarageCoefficient)), .2)
+	ReverbSoundEffect.Density = LerpNumber(ReverbSoundEffect.Density, MaxBounce, .2)
+	ReverbSoundEffect.Diffusion = LerpNumber(ReverbSoundEffect.Diffusion, 1 - Avaragebounces/Settings.Occlusion.MaxBounce, .2)
+	ReverbSoundEffect.WetLevel = LerpNumber(ReverbSoundEffect.WetLevel, (Avaragebounces/MaxBounce) * AvarageCoefficient, .2)
 
 end
 
