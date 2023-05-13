@@ -17,7 +17,7 @@ removes sounds from the sound list
 `:Play(SoundName:string, Target:Vector3|Instance)`
 plays the sound with Occlusion, Delay, and 3D sound effect applied in run time.
 
-##How to use
+## How to use
 
 ```lua
 local Sounds = {
