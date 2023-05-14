@@ -4,6 +4,8 @@ A module designed for realistic audio in roblox for run time use. Be aware that 
 Now the reason why it does not have "stop sound" function is because this was designed to be used for realism in gameplay, please only use this module for that.
 Dont forget that this is only to be used in the client and not the server.
 
+Credits to Sleitnick for his sound delay implementation and BoatBomber for his 3D sound implementation.
+
 ## API
 `.New(Sounds:{[SoundName] = Sound:Sound}?)`
 returns a new DynamicSoundHandler. Must be used in the client!
