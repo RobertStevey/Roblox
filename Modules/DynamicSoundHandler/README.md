@@ -17,7 +17,7 @@ Adds sounds to the sounds list.
 removes sounds from the sound list
 
 `:Play(SoundName:string, Target:Vector3|Instance)`
-plays the sound with Occlusion, Delay, and 3D sound effect applied in run time.
+plays the sound with Reverb, Delay, and 3D sound effect applied in run time.
 
 ## How to use
 
