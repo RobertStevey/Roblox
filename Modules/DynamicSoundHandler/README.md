@@ -1,7 +1,7 @@
 ## DynamicSoundHandler
 
 A module designed for realistic audio in roblox for run time use. Be aware that this isn't optimized as much as it could be.  
-The reason there is no "stop sound" function is because this module was specifically designed for enhancing realism in gameplay. The module is made for that use case.
+The reason there is no "stop sound" function is because this module was specifically designed for enhancing realism in gameplay. It's not recommended to use this module for all sounds.
 
 > :warning: This module can only run on the **client** (LocalScript). Use RemoteEvents to replicate sound to all clients.
 
