@@ -30,45 +30,14 @@ local Settings = {
 	},
 	DelaySound = {
 		Speed = 343
-	}
+	},
+	Debug = true
 }
 
 local DynamicSoundHandler = {}
 DynamicSoundHandler.__index = DynamicSoundHandler
 
-local Camera = workspace.Camera
-
-function DynamicSoundHandler.New(Sounds)
-	if RunService:IsServer() then
-		error("DynamicSoundHandler must run on the client!")
-		return
-	end
-	local self = {}
-	self.Sounds = {}
-	if Sounds then
-		for SoundName, Sound in pairs(Sounds) do
-			self.Sounds[SoundName] = Sound
-			--if self.Sounds[SoundName].Occlusion then
-			local Reverb = Instance.new("ReverbSoundEffect")
-			Reverb.DryLevel = 6
-			Reverb.WetLevel = 0
-			Reverb.DecayTime = 0
-			Reverb.Density = 0
-			Reverb.Diffusion = 0
-			Reverb.Parent = Sound
-			--end
-			--if self.Sounds[SoundName].Sound3D then
-			local Equalizer = Instance.new("EqualizerSoundEffect")
-			Equalizer.LowGain	= 0
-			Equalizer.MidGain	= 0
-			Equalizer.HighGain	= 0
-			Equalizer.Parent = Sound
-			--end
-		end
-	end
-	self.PlayingSounds = {}
-	return setmetatable(self, DynamicSoundHandler)
-end
+local Camera = workspace.CurrentCamera
 
 function GetDirection(n, Length)
 	local result = {}
@@ -94,38 +63,124 @@ local function LerpNumber(a, b, t)
 	return a + (b - a) * t
 end
 
-function DynamicSoundHandler:AddSound(Sounds)
-	for SoundName, Sound in pairs(Sounds) do
-		self.Sounds[SoundName] = Sound
-		--if self.Sounds[SoundName].Occlusion then
-		local Reverb = Instance.new("ReverbSoundEffect")
-		Reverb.DryLevel = 0
-		Reverb.WetLevel = 0
-		Reverb.DecayTime = 0
-		Reverb.Density = 0
-		Reverb.Diffusion = 0
-		Reverb.Parent = Sound
-		--end
-		--if self.Sounds[SoundName].Sound3D then
-		local Equalizer = Instance.new("EqualizerSoundEffect")
-		Equalizer.LowGain	= 0
-		Equalizer.MidGain	= 0
-		Equalizer.HighGain	= 0
-		Equalizer.Parent = Sound
-		--end
+local function ValidateSoundID(SoundID : string)
+	if SoundID:match("rbxassetid://") then
+		return SoundID
 	end
+	return "rbxassetid://".. string.gsub(SoundID, "%D+", "")
 end
 
-function DynamicSoundHandler:RemoveSound(SoundNames)
+function DynamicSoundHandler.New(Sounds)
+	if RunService:IsServer() then
+		error("DynamicSoundHandler must run on the client!")
+		return
+	end
+	
+	local self = setmetatable({}, DynamicSoundHandler)
+	self.Sounds = {}
+	self.PlayingSounds = {}
+	if Sounds then self:AddSounds(Sounds) end
+
+	return self
+end
+
+
+function DynamicSoundHandler:AddSounds(Sounds, Name)
+	
+	if typeof(Sounds) == "table" then
+		for SoundName, Sound : Sound in pairs(Sounds) do
+			if typeof(Sound) ~= "Instance" then 
+				if type(Sound) ~= "string" then continue end
+				local SoundID = ValidateSoundID(Sound)
+				Sound = Instance.new("Sound")
+				Sound.SoundId = SoundID
+			end
+			
+			if not Sound:IsA("Sound") then 
+				warn(Sound.Name.. " Is not a Sound Object or ID")
+				continue 
+			end
+			
+			self.Sounds[SoundName] = Sound
+			--if self.Sounds[SoundName].Occlusion then
+			local Reverb = Instance.new("ReverbSoundEffect")
+			Reverb.DryLevel = 0
+			Reverb.WetLevel = 0
+			Reverb.DecayTime = 0
+			Reverb.Density = 0
+			Reverb.Diffusion = 0
+			Reverb.Parent = Sound
+			--end
+			--if self.Sounds[SoundName].Sound3D then
+			local Equalizer = Instance.new("EqualizerSoundEffect")
+			Equalizer.LowGain	= 0
+			Equalizer.MidGain	= 0
+			Equalizer.HighGain	= 0
+			Equalizer.Parent = Sound
+			--end
+		end
+		return
+	end
+	
+	if typeof(Sounds) ~= "Instance" then 
+		if type(Sounds) ~= "string" then return end
+		local SoundID = ValidateSoundID(Sounds)
+		Sounds = Instance.new("Sound")
+		Sounds.SoundId = SoundID
+	end
+
+	if not Sounds:IsA("Sound") then 
+		warn(Sounds.Name.. " Is not a Sound Object or ID") 
+		return
+	end
+	
+	self.Sounds[Name] = Sounds
+	--if self.Sounds[SoundName].Occlusion then
+	local Reverb = Instance.new("ReverbSoundEffect")
+	Reverb.DryLevel = 0
+	Reverb.WetLevel = 0
+	Reverb.DecayTime = 0
+	Reverb.Density = 0
+	Reverb.Diffusion = 0
+	Reverb.Parent = Sounds
+	--end
+	--if self.Sounds[SoundName].Sound3D then
+	local Equalizer = Instance.new("EqualizerSoundEffect")
+	Equalizer.LowGain	= 0
+	Equalizer.MidGain	= 0
+	Equalizer.HighGain	= 0
+	Equalizer.Parent = Sounds
+	
+end
+
+function DynamicSoundHandler:RemoveSounds(SoundNames)
 	for SoundName, Sound in pairs(SoundNames) do
 		local Sound = self.Sounds[SoundName]
+		if not Sound then continue end
+		
 		Sound:FindFirstChild("ReverbSoundEffect"):Destroy()
 		Sound:FindFirstChild("EqualizerSoundEffect"):Destroy()
+		Sound:Destroy()
 		self.Sounds[SoundName] = nil
 	end
 end
 
 
+function DynamicSoundHandler:DebugRays(To, From)
+	local distance = (From - To).Magnitude
+	local Line = Instance.new("Part")
+	Line.Anchored = true
+	Line.CanCollide = false
+	Line.Color = Color3.new(0.027451, 1, 0.109804)
+	Line.Size = Vector3.new(0.05, 0.05, distance)
+	Line.CFrame = CFrame.lookAt(From, To)*CFrame.new(0, 0, -distance/2)
+	Line.Parent = workspace.Terrain
+	
+	task.spawn(function()
+		RunService.RenderStepped:Wait()
+		Line:Destroy()
+	end)
+end
 
 function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	local Counter = Settings.Occlusion.MaxBounce
@@ -133,54 +188,59 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	local Directions = GetDirection(Settings.Occlusion.Rays, Length)
 
 	local RayParams = RaycastParams.new()
-	RayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	RayParams.FilterType = Enum.RaycastFilterType.Exclude
 	RayParams.FilterDescendantsInstances = {Settings.Occlusion.FilterDescendants}
 	RayParams.IgnoreWater = Settings.Occlusion.IgnoreWater
-	
-	local ReverbSoundEffect:ReverbSoundEffect = Sound:FindFirstChild("ReverbSoundEffect")
 
-	local Hit = {}
-	local AvarageDistance = {}
-	local AvarageCoefficient = {}
-	local Avaragebounces = {}
-	
+	local ReverbSoundEffect = Sound:FindFirstChild("ReverbSoundEffect") 
+
+	local AverageDistanceTable = {}
+	local AverageCoefficientTable = {}
+	local AveragebouncesTable = {}
+
 	local function Fire(From, Direction, bounce)
 		local bounce = bounce or 0
 		if bounce <= Settings.Occlusion.MaxBounce then
 			local RayResult = workspace:Raycast(From, Direction*Length, RayParams)
+
 			
 			if RayResult then
+				local To = RayResult.Position
+				if Settings.Debug then
+					self:DebugRays(To,From)
+				end
 				local Position = RayResult.Position
 				local Vector = Position-From
 				local Ref = Reflect(Vector, RayResult.Normal)
 
-				table.insert(AvarageDistance, Vector.Magnitude)
-				table.insert(AvarageCoefficient, Settings.Occlusion.MaterialReflect[RayResult.Material.Name])
-				bounce = bounce
+				table.insert(AverageDistanceTable, Vector.Magnitude)
+				table.insert(AverageCoefficientTable, Settings.Occlusion.MaterialReflect[RayResult.Material.Name])
 				Fire(Position, Ref, bounce+1)
 			else
-				table.insert(Avaragebounces, bounce)
-				table.insert(AvarageCoefficient, Settings.Occlusion.Fallback)
+				table.insert(AveragebouncesTable, bounce)
+				table.insert(AverageCoefficientTable, Settings.Occlusion.Fallback)
 			end
 		else
-			table.insert(Avaragebounces, Settings.Occlusion.MaxBounce)
+			table.insert(AveragebouncesTable, Settings.Occlusion.MaxBounce)
 		end
 	end
 
 	for i = 1, #Directions do
 		Fire(Position, Directions[i], 0)
 	end
-	local MaxBounce = math.max(table.unpack(Avaragebounces))
+	local MaxBounce = math.max(table.unpack(AveragebouncesTable))
 	--[[local MaxCoefficient = math.max(table.unpack(AvarageCoefficient))
 	local MaxDistance = math.max(table.unpack(AvarageDistance))
-	]]AvarageDistance = Average(AvarageDistance)
-	AvarageCoefficient = Average(AvarageCoefficient)
-	Avaragebounces = Average(Avaragebounces)
+	]]
 	
-	ReverbSoundEffect.DecayTime = LerpNumber(ReverbSoundEffect.DecayTime, ((Avaragebounces*AvarageCoefficient)*(AvarageDistance * AvarageCoefficient)), .2)
+	local AverageDistance : number = Average(AverageDistanceTable)
+	local AverageCoefficient : number = Average(AverageCoefficientTable)
+	local Averagebounces : number = Average(AveragebouncesTable)
+
+	ReverbSoundEffect.DecayTime = LerpNumber(ReverbSoundEffect.DecayTime, ((Averagebounces*AverageCoefficient)*(AverageDistance * AverageCoefficient)), .2)
 	ReverbSoundEffect.Density = LerpNumber(ReverbSoundEffect.Density, MaxBounce, .2)
-	ReverbSoundEffect.Diffusion = LerpNumber(ReverbSoundEffect.Diffusion, 1 - Avaragebounces/Settings.Occlusion.MaxBounce, .2)
-	ReverbSoundEffect.WetLevel = LerpNumber(ReverbSoundEffect.WetLevel, (Avaragebounces/MaxBounce) * AvarageCoefficient, .2)
+	ReverbSoundEffect.Diffusion = LerpNumber(ReverbSoundEffect.Diffusion, 1 - Averagebounces/Settings.Occlusion.MaxBounce, .2)
+	ReverbSoundEffect.WetLevel = LerpNumber(ReverbSoundEffect.WetLevel, (Averagebounces/MaxBounce) * AverageCoefficient, .2)
 
 end
 
@@ -222,30 +282,44 @@ function DynamicSoundHandler:_DelaySoundRender(Sound, Start, Position)
 	end
 end
 
-function DynamicSoundHandler:Play(SoundName, Target:Vector3|Instance)
+function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 	local SoundInfo = self.Sounds[SoundName]
-	local Sound = Instance.new("Sound")
-	Sound = SoundInfo:Clone()
-	local TargetType = typeof(Target)
-	local Connection = nil
-	local Start = os.clock()
+	if not SoundInfo then error(SoundName.. "not found in SoundTable") end
 	
+	local Sound : Sound = SoundInfo:Clone()
+	local Connection
+	
+	local Start = os.clock()
+
 	local function Update(Position)
 		self:_DelaySoundRender(Sound, Start, Position)
 		self:_Sound3DRender(Sound, Position)
 		self:_OcclusionRender(Sound, Position)
 	end
 	
-	if TargetType == "Instance" and Target.Position then
+	if typeof(Target) == "Instance" and Target.Position then
 		Sound.Parent = Target
+		
 		Connection = RunService.RenderStepped:Connect(function()
 			Update(Target.Position)
 		end)
-		Sound.Ended:Once(function()
+		
+		local function StopPlaying()
 			Connection:Disconnect()
 			Sound:Destroy()
-		end)
-	elseif TargetType == "Vector3" then
+		end
+		
+		local function OnDestroy()
+			Connection:Disconnect()
+		end
+		
+		Sound.Destroying:Once(OnDestroy)
+		Sound.AncestryChanged:Once(OnDestroy)
+		Sound.Ended:Once(StopPlaying)
+		Sound.Stopped:Once(StopPlaying)
+		
+		
+	elseif typeof(Target) == "Vector3" then
 		local Emitter = Instance.new("Attachment")
 		Emitter.Position = Target
 		Emitter.Parent = workspace.Terrain
@@ -253,11 +327,22 @@ function DynamicSoundHandler:Play(SoundName, Target:Vector3|Instance)
 		Connection = RunService.RenderStepped:Connect(function()
 			Update(Target)
 		end)
-		Sound.Ended:Once(function()
+		
+		local function OnDestroy()
+			Connection:Disconnect()
+			Emitter:Destroy()
+		end
+
+		local function StopPlaying()
 			Connection:Disconnect()
 			Sound:Destroy()
 			Emitter:Destroy()
-		end)
+		end
+		
+		Sound.Destroying:Once(OnDestroy)
+		Sound.AncestryChanged:Once(OnDestroy)
+		Sound.Ended:Once(StopPlaying)
+		Sound.Stopped:Once(StopPlaying)
 	end
 end
 
