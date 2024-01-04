@@ -1,6 +1,11 @@
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 -- only to be used for realism stuff
+local Colors = {
+	[0] = BrickColor.Green(), 
+	[1] = BrickColor.Yellow(), 
+	[2]= BrickColor.Red()
+}
 
 local Settings = {
 	Occlusion = {
@@ -48,7 +53,7 @@ function GetDirection(n, Length)
 end
 
 local function Reflect(vector, normal)
-	return 2 * vector:Dot(normal) * normal + vector
+	return -2 * vector:Dot(normal) * normal + vector
 end
 
 function Average(t:{number})
@@ -154,9 +159,22 @@ function DynamicSoundHandler:AddSounds(Sounds, Name)
 end
 
 function DynamicSoundHandler:RemoveSounds(SoundNames)
-	for SoundName, Sound in pairs(SoundNames) do
+	
+	if typeof(SoundNames) ~= "table" then
+		if type(SoundNames) ~= "string" then return end
+		local Sound = self.Sounds[SoundNames]
+		if not Sound then warn(SoundNames, "Was not found in Sound table") return end
+
+		Sound:FindFirstChild("ReverbSoundEffect"):Destroy()
+		Sound:FindFirstChild("EqualizerSoundEffect"):Destroy()
+		Sound:Destroy()
+		self.Sounds[SoundNames] = nil
+		return
+	end
+	
+	for SoundName, _ in pairs(SoundNames) do
 		local Sound = self.Sounds[SoundName]
-		if not Sound then continue end
+		if not Sound then warn(SoundName, "Was not found in Sound table") continue end
 		
 		Sound:FindFirstChild("ReverbSoundEffect"):Destroy()
 		Sound:FindFirstChild("EqualizerSoundEffect"):Destroy()
@@ -166,15 +184,15 @@ function DynamicSoundHandler:RemoveSounds(SoundNames)
 end
 
 
-function DynamicSoundHandler:DebugRays(To, From)
-	local distance = (From - To).Magnitude
-	local Line = Instance.new("Part")
-	Line.Anchored = true
-	Line.CanCollide = false
-	Line.Color = Color3.new(0.027451, 1, 0.109804)
-	Line.Size = Vector3.new(0.05, 0.05, distance)
-	Line.CFrame = CFrame.lookAt(From, To)*CFrame.new(0, 0, -distance/2)
+function DynamicSoundHandler:DebugRays(From, To, Distance, Direction, Color)
+	local Line = Instance.new("LineHandleAdornment")
+	Line.Color = Color or BrickColor.Black()
+	Line.Thickness = 1
+	Line.Length = Distance
+	Line.CFrame = CFrame.new(From)
+	Line.CFrame = CFrame.lookAt(From, To)
 	Line.Parent = workspace.Terrain
+	Line.Adornee = workspace.Terrain
 	
 	task.spawn(function()
 		RunService.RenderStepped:Wait()
@@ -193,7 +211,8 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	RayParams.IgnoreWater = Settings.Occlusion.IgnoreWater
 
 	local ReverbSoundEffect = Sound:FindFirstChild("ReverbSoundEffect") 
-
+	
+	local Hits = {}
 	local AverageDistanceTable = {}
 	local AverageCoefficientTable = {}
 	local AveragebouncesTable = {}
@@ -205,16 +224,13 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 
 			
 			if RayResult then
-				local To = RayResult.Position
-				if Settings.Debug then
-					self:DebugRays(To,From)
-				end
 				local Position = RayResult.Position
 				local Vector = Position-From
 				local Ref = Reflect(Vector, RayResult.Normal)
 
 				table.insert(AverageDistanceTable, Vector.Magnitude)
 				table.insert(AverageCoefficientTable, Settings.Occlusion.MaterialReflect[RayResult.Material.Name])
+				table.insert(Hits, {From, Position, Vector.Magnitude, Direction, Colors[bounce]})
 				Fire(Position, Ref, bounce+1)
 			else
 				table.insert(AveragebouncesTable, bounce)
@@ -222,6 +238,12 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 			end
 		else
 			table.insert(AveragebouncesTable, Settings.Occlusion.MaxBounce)
+			if Settings.Debug then
+				for _, RayTable in Hits do
+					self:DebugRays(RayTable[1], RayTable[2], RayTable[3], RayTable[4], RayTable[5])
+				end
+			end	
+			
 		end
 	end
 
@@ -317,15 +339,14 @@ function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 		Sound.AncestryChanged:Once(OnDestroy)
 		Sound.Ended:Once(StopPlaying)
 		Sound.Stopped:Once(StopPlaying)
-		
-		
+		return Sound
 	elseif typeof(Target) == "Vector3" then
 		local Emitter = Instance.new("Attachment")
 		Emitter.Position = Target
 		Emitter.Parent = workspace.Terrain
 		Sound.Parent = Emitter
 		Connection = RunService.RenderStepped:Connect(function()
-			Update(Target)
+			Update(Emitter.Position)
 		end)
 		
 		local function OnDestroy()
@@ -343,7 +364,10 @@ function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 		Sound.AncestryChanged:Once(OnDestroy)
 		Sound.Ended:Once(StopPlaying)
 		Sound.Stopped:Once(StopPlaying)
+		return Sound, Emitter
 	end
 end
+
+return DynamicSoundHandler
 
 return DynamicSoundHandler
