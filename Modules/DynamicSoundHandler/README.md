@@ -12,9 +12,11 @@ Credits to Sleitnick for his sound delay implementation and BoatBomber for his 3
 Returns a new DynamicSoundHandler.
 
 `:AddSound(Sounds:{[SoundName] = Sound:Sound})`  
+`:AddSound(Sound:(Sound, SoundName)`  
 Adds a sound to the sounds list.
 
-`:RemoveSound(SoundNames{SoundName:string})`
+`:RemoveSound({SoundName:string})`
+`:RemoveSound(SoundName: String)`
 Removes a sound from the sound list
 
 `:Play(SoundName:string, Target:Vector3|Instance)`
