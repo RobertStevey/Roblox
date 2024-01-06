@@ -1,42 +1,35 @@
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
--- only to be used for realism stuff
-local Colors = {
-	[0] = BrickColor.Green(), 
-	[1] = BrickColor.Yellow(), 
-	[2]= BrickColor.Red()
-}
 
+-- Define settings for sound occlusion and 3D sound rendering
 local Settings = {
 	Occlusion = {
-		--how reflective are the material? if it gets higher then it is more echo-ey
+		-- Reflectivity values for different materials (higher value = more echo)
+		DefaultReflect = 0.1,
 		MaterialReflect = {
-			Fabric = 0.1,
-			Grass = 0.3,
-			Sand = 0.35,
-			SmoothPlastic = 0.5,
-			Plastic = 0.8,
-			Cobblestone = 0.35,
-			Concrete = 0.3,
-			Wood = 0.5,
-			WoodPlanks = 0.5,
-			Brick = 0.3,
-			Ice = 0.7,
-			Metal = 0.6,
-			Marble = 0.8,
-			Granite = 0.8
+			Fabric = 0.1, Grass = 0.3, Sand = 0.35, 
+			SmoothPlastic = 0.5, Plastic = 0.8, Cobblestone = 0.35, 
+			Concrete = 0.3, Wood = 0.5, WoodPlanks = 0.5, 
+			Brick = 0.3, Ice = 0.7, Metal = 0.6, Marble = 0.8, Granite = 0.8
 		},
-		Rays = 8,
-		Fallback = 0.1,
-		FilterDescendants = {},
-		RayLength = 20,
-		IgnoreWater = true,
-		MaxBounce = 3,
+		Rays = 8, -- Number of rays to cast for occlusion checks
+		Fallback = 0.1, -- Fallback reflectivity value
+		FilterDescendants = {}, -- Objects to exclude from raycasting
+		RayLength = 20, -- Maximum distance of each ray
+		IgnoreWater = true, -- Whether to ignore water in raycasting
+		MaxBounce = 3, -- Maximum number of ray bounces
 	},
 	DelaySound = {
-		Speed = 343
+		Speed = 343 -- Speed of sound for delay calculation (in m/s)
 	},
-	Debug = true
+	Debug = {
+		Enabled = true, -- Toggle for debug mode
+		Thickness = 5, -- Thickness of debug lines
+		Colors = { -- Color coding for rays based on bounce count
+			Default = BrickColor.Gray(),
+			[0] = BrickColor.Green(), [1] = BrickColor.Yellow(), [2]= BrickColor.Red()
+		}
+	}
 }
 
 local DynamicSoundHandler = {}
@@ -80,7 +73,7 @@ function DynamicSoundHandler.New(Sounds)
 		error("DynamicSoundHandler must run on the client!")
 		return
 	end
-	
+
 	local self = setmetatable({}, DynamicSoundHandler)
 	self.Sounds = {}
 	self.PlayingSounds = {}
@@ -91,7 +84,7 @@ end
 
 
 function DynamicSoundHandler:AddSounds(Sounds, Name)
-	
+
 	if typeof(Sounds) == "table" then
 		for SoundName, Sound : Sound in pairs(Sounds) do
 			if typeof(Sound) ~= "Instance" then 
@@ -100,12 +93,12 @@ function DynamicSoundHandler:AddSounds(Sounds, Name)
 				Sound = Instance.new("Sound")
 				Sound.SoundId = SoundID
 			end
-			
+
 			if not Sound:IsA("Sound") then 
 				warn(Sound.Name.. " Is not a Sound Object or ID")
 				continue 
 			end
-			
+
 			self.Sounds[SoundName] = Sound
 			--if self.Sounds[SoundName].Occlusion then
 			local Reverb = Instance.new("ReverbSoundEffect")
@@ -126,7 +119,7 @@ function DynamicSoundHandler:AddSounds(Sounds, Name)
 		end
 		return
 	end
-	
+
 	if typeof(Sounds) ~= "Instance" then 
 		if type(Sounds) ~= "string" then return end
 		local SoundID = ValidateSoundID(Sounds)
@@ -138,7 +131,7 @@ function DynamicSoundHandler:AddSounds(Sounds, Name)
 		warn(Sounds.Name.. " Is not a Sound Object or ID") 
 		return
 	end
-	
+
 	self.Sounds[Name] = Sounds
 	--if self.Sounds[SoundName].Occlusion then
 	local Reverb = Instance.new("ReverbSoundEffect")
@@ -155,11 +148,11 @@ function DynamicSoundHandler:AddSounds(Sounds, Name)
 	Equalizer.MidGain	= 0
 	Equalizer.HighGain	= 0
 	Equalizer.Parent = Sounds
-	
+
 end
 
 function DynamicSoundHandler:RemoveSounds(SoundNames)
-	
+
 	if typeof(SoundNames) ~= "table" then
 		if type(SoundNames) ~= "string" then return end
 		local Sound = self.Sounds[SoundNames]
@@ -167,18 +160,18 @@ function DynamicSoundHandler:RemoveSounds(SoundNames)
 
 		Sound:FindFirstChild("ReverbSoundEffect"):Destroy()
 		Sound:FindFirstChild("EqualizerSoundEffect"):Destroy()
-		Sound:Destroy()
+		self:Stop(SoundNames)
 		self.Sounds[SoundNames] = nil
 		return
 	end
-	
+
 	for SoundName, _ in pairs(SoundNames) do
 		local Sound = self.Sounds[SoundName]
 		if not Sound then warn(SoundName, "Was not found in Sound table") continue end
-		
+
 		Sound:FindFirstChild("ReverbSoundEffect"):Destroy()
 		Sound:FindFirstChild("EqualizerSoundEffect"):Destroy()
-		Sound:Destroy()
+		self:Stop(SoundName)
 		self.Sounds[SoundName] = nil
 	end
 end
@@ -186,14 +179,14 @@ end
 
 function DynamicSoundHandler:DebugRays(From, To, Distance, Direction, Color)
 	local Line = Instance.new("LineHandleAdornment")
-	Line.Color = Color or BrickColor.Black()
-	Line.Thickness = 1
+	Line.Color = Color or Settings.Debug.Colors.Default
+	Line.Thickness = Settings.Debug.Thickness
 	Line.Length = Distance
 	Line.CFrame = CFrame.new(From)
 	Line.CFrame = CFrame.lookAt(From, To)
 	Line.Parent = workspace.Terrain
 	Line.Adornee = workspace.Terrain
-	
+
 	task.spawn(function()
 		RunService.RenderStepped:Wait()
 		Line:Destroy()
@@ -211,7 +204,7 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	RayParams.IgnoreWater = Settings.Occlusion.IgnoreWater
 
 	local ReverbSoundEffect = Sound:FindFirstChild("ReverbSoundEffect") 
-	
+
 	local Hits = {}
 	local AverageDistanceTable = {}
 	local AverageCoefficientTable = {}
@@ -222,7 +215,7 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 		if bounce <= Settings.Occlusion.MaxBounce then
 			local RayResult = workspace:Raycast(From, Direction*Length, RayParams)
 
-			
+
 			if RayResult then
 				local Position = RayResult.Position
 				local Vector = Position-From
@@ -230,7 +223,7 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 
 				table.insert(AverageDistanceTable, Vector.Magnitude)
 				table.insert(AverageCoefficientTable, Settings.Occlusion.MaterialReflect[RayResult.Material.Name])
-				table.insert(Hits, {From, Position, Vector.Magnitude, Direction, Colors[bounce]})
+				table.insert(Hits, {From, Position, Vector.Magnitude, Direction, Settings.Debug.Colors[bounce]})
 				Fire(Position, Ref, bounce+1)
 			else
 				table.insert(AveragebouncesTable, bounce)
@@ -238,12 +231,6 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 			end
 		else
 			table.insert(AveragebouncesTable, Settings.Occlusion.MaxBounce)
-			if Settings.Debug then
-				for _, RayTable in Hits do
-					self:DebugRays(RayTable[1], RayTable[2], RayTable[3], RayTable[4], RayTable[5])
-				end
-			end	
-			
 		end
 	end
 
@@ -254,16 +241,21 @@ function DynamicSoundHandler:_OcclusionRender(Sound:Sound,Position)
 	--[[local MaxCoefficient = math.max(table.unpack(AvarageCoefficient))
 	local MaxDistance = math.max(table.unpack(AvarageDistance))
 	]]
-	
+
 	local AverageDistance : number = Average(AverageDistanceTable)
 	local AverageCoefficient : number = Average(AverageCoefficientTable)
 	local Averagebounces : number = Average(AveragebouncesTable)
 
-	ReverbSoundEffect.DecayTime = LerpNumber(ReverbSoundEffect.DecayTime, ((Averagebounces*AverageCoefficient)*(AverageDistance * AverageCoefficient)), .2)
+	local bounceFactor = Averagebounces / Settings.Occlusion.MaxBounce
+	ReverbSoundEffect.DecayTime = LerpNumber(ReverbSoundEffect.DecayTime, ((bounceFactor * AverageCoefficient) * (AverageDistance * AverageCoefficient)), .2)
 	ReverbSoundEffect.Density = LerpNumber(ReverbSoundEffect.Density, MaxBounce, .2)
 	ReverbSoundEffect.Diffusion = LerpNumber(ReverbSoundEffect.Diffusion, 1 - Averagebounces/Settings.Occlusion.MaxBounce, .2)
 	ReverbSoundEffect.WetLevel = LerpNumber(ReverbSoundEffect.WetLevel, (Averagebounces/MaxBounce) * AverageCoefficient, .2)
-
+	if Settings.Debug.Enabled then
+		for _, RayTable in Hits do
+			self:DebugRays(RayTable[1], RayTable[2], RayTable[3], RayTable[4], RayTable[5])
+		end
+	end	
 end
 
 function DynamicSoundHandler:_Sound3DRender(Sound, Position)
@@ -293,24 +285,25 @@ function DynamicSoundHandler:_Sound3DRender(Sound, Position)
 end
 
 function DynamicSoundHandler:_DelaySoundRender(Sound, Start, Position)
+	if not Sound then return end
+	if Sound.IsPlaying then return end
 	--credits to Sleitnick for his delay sound module i found
 	local Elapsed = os.clock() - Start
 	local Distance = (Camera.CFrame.Position - Position).Magnitude
 	local PlayTime = Distance / Settings.DelaySound.Speed
+	
 	if Elapsed >= PlayTime then
-		if not Sound.IsPlaying then
-			Sound:Play()
-		end
+		Sound:Play()
 	end
 end
 
 function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 	local SoundInfo = self.Sounds[SoundName]
 	if not SoundInfo then error(SoundName.. "not found in SoundTable") end
-	
+
 	local Sound : Sound = SoundInfo:Clone()
 	local Connection
-	
+
 	local Start = os.clock()
 
 	local function Update(Position)
@@ -318,25 +311,24 @@ function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 		self:_Sound3DRender(Sound, Position)
 		self:_OcclusionRender(Sound, Position)
 	end
-	
+
 	if typeof(Target) == "Instance" and Target.Position then
 		Sound.Parent = Target
-		
+
 		Connection = RunService.RenderStepped:Connect(function()
 			Update(Target.Position)
 		end)
-		
+
 		local function StopPlaying()
 			Connection:Disconnect()
 			Sound:Destroy()
 		end
-		
+
 		local function OnDestroy()
 			Connection:Disconnect()
 		end
-		
+
 		Sound.Destroying:Once(OnDestroy)
-		Sound.AncestryChanged:Once(OnDestroy)
 		Sound.Ended:Once(StopPlaying)
 		Sound.Stopped:Once(StopPlaying)
 		return Sound
@@ -348,7 +340,7 @@ function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 		Connection = RunService.RenderStepped:Connect(function()
 			Update(Emitter.Position)
 		end)
-		
+
 		local function OnDestroy()
 			Connection:Disconnect()
 			Emitter:Destroy()
@@ -356,18 +348,14 @@ function DynamicSoundHandler:Play(SoundName, Target : BasePart|Vector3)
 
 		local function StopPlaying()
 			Connection:Disconnect()
-			Sound:Destroy()
 			Emitter:Destroy()
 		end
-		
+
 		Sound.Destroying:Once(OnDestroy)
-		Sound.AncestryChanged:Once(OnDestroy)
 		Sound.Ended:Once(StopPlaying)
 		Sound.Stopped:Once(StopPlaying)
 		return Sound, Emitter
 	end
 end
-
-return DynamicSoundHandler
 
 return DynamicSoundHandler
