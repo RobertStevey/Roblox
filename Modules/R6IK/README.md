@@ -24,3 +24,17 @@ local IKController = R6IK.New(Dummy)
 IKController:LegIK("Right", workspace.Target.Position)
 IKController:ArmIK("Right", workspace.Target.Position)
 ```
+
+also as a reminder you ONLY need to use the .New function ONCE for a character, so for example if you want a character do loop IK then you do this
+
+```lua
+local R6IK = [[path to the module]]
+local Dummy = workspace.Rig
+
+local IKController = R6IK.New(Dummy)
+
+while true do
+  IKController:LegIK("Right", workspace.Target.Position)
+  IKController:ArmIK("Right", workspace.Target.Position)
+end
+```
